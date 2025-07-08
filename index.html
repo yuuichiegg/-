@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>統合版 地震情報ビューア (総合防災AI版) - v6.7</title>
+    <title>統合版 地震情報ビューア (総合防災AI版) - v6.6</title>
     
     <!-- Leaflet.js CSS and Script -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -138,7 +138,7 @@
         <div id="map"></div>
         <!-- Drone Dashboard - Always present, visibility toggled by JS -->
         <div id="drone-dashboard" class="hidden">
-            <h4 class="text-lg">ドローンミッション状況</h4>
+            <h4 class="lg:text-lg">ドローンミッション状況</h4>
             <div class="text-sm space-y-1">
                 <p>速度: <span id="drone-speed">0.0</span> km/h</p>
                 <p>高度: <span id="drone-altitude">0.0</span> m</p>
@@ -147,7 +147,7 @@
                 <p>障害物検知: <span id="drone-obstacle-detection">なし</span></p>
                 <p>ETA: <span id="drone-eta">計算中...</span></p>
             </div>
-            <h5 class="text-md font-bold mt-4">ミッションログ</h5>
+            <h5 class="md:text-md font-bold mt-4">ミッションログ</h5>
             <div id="mission-log" class="text-xs"></div>
             <button id="cancel-drone-mission" class="w-full mt-4 bg-red-500 text-white font-bold py-2 px-4 rounded-md hover:bg-red-600">ミッションキャンセル</button>
         </div>
@@ -166,12 +166,6 @@
         </button>
         <button id="drone-request-button" class="tool-button" title="ドローン支援要請">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
-        </button>
-        <button id="replay-drone-mission-button" class="tool-button hidden" title="前回のドローンミッションを再生">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.604 3.113a.375.375 0 01-.557-.327V8.888c0-.286.307-.466.557-.327l5.604 3.113z" />
-            </svg>
         </button>
         <button id="show-drone-narrative-button" class="tool-button hidden" title="ドローンミッション情報を表示">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
@@ -232,7 +226,6 @@
         // --- DOM Elements ---
         const modalContainer = document.getElementById('modal-container');
         const droneDashboard = document.getElementById('drone-dashboard');
-        const replayDroneMissionButton = document.getElementById('replay-drone-mission-button');
         const showDroneNarrativeButton = document.getElementById('show-drone-narrative-button');
         const droneNarrativeModalEl = document.getElementById('drone-narrative-modal');
 
@@ -297,7 +290,7 @@
             if (locationMarker) {
                 map.removeLayer(locationMarker);
             }
-            const pinIcon = L.divIcon({className: 'text-4xl', html: '📍'});
+            const pinIcon = L.divIcon({className: 'text-4xl', html: '🔵'});
             locationMarker = L.marker(e.latlng, {icon: pinIcon, draggable: true}).addTo(map);
             
             locationMarker.on('dragend', function(event) {
@@ -314,28 +307,19 @@
         // --- Gemini API Call ---
         async function callGeminiApi(prompt) {
             setApiButtonsState(true);
-            const apiUrl = '/api/callGemini'; // Vercel API route
-            const payload = { prompt };
+            const apiKey = ""; // Handled by Canvas
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
             try {
-                const response = await fetch(apiUrl, { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify(payload) 
-                });
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`APIリクエストに失敗しました: ${response.status} ${errorText}`);
-                }
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) throw new Error(`APIリクエストに失敗しました: ${response.status}`);
                 const result = await response.json();
-                if (result.text) return result.text;
+                if (result.candidates && result.candidates[0].content.parts[0].text) return result.candidates[0].content.parts[0].text;
                 else throw new Error('無効なAPIレスポンスです。');
             } catch (error) {
                 console.error("Gemini API Error:", error);
-                showModal('AI APIエラー', `<p>AI機能の呼び出し中にエラーが発生しました。</p><p class="text-sm text-gray-500 mt-2">詳細: ${error.message}</p>`);
                 return `エラーが発生しました: ${error.message}`;
-            } finally { 
-                setApiButtonsState(false); 
-            }
+            } finally { setApiButtonsState(false); }
         }
 
         // --- AI Feature Functions ---
@@ -364,7 +348,7 @@
         }
         
         async function generatePreparednessTips() {
-            showModal(' 事前の備え (AI防災アドバイザー)', '<div class="spinner"></div>');
+            showModal('💡 事前の備え (AI防災アドバイザー)', '<div class="spinner"></div>');
             const prompt = `あなたは経験豊富な防災コンサルタントです。地震が発生する前に家庭でできる予防策や、防災計画のアイデアをいくつか提案してください。家具の固定方法、備蓄品の選び方、家族との連絡方法の確認など、読者がすぐに行動に移せるような具体的で実践的なアドバイスをMarkdown形式で記述してください。`;
             const resultText = await callGeminiApi(prompt);
             updateModalContent(formatTextToHtml(resultText));
@@ -376,7 +360,7 @@
                 showModal('エラー', '<p>停電リスク分析には、まず「MY防災レポート」セクションで場所を指定してください。</p>');
                 return;
             }
-            showModal(' 停電リスク分析 (AI)', '<div class="spinner"></div>');
+            showModal('💡 停電リスク分析 (AI)', '<div class="spinner"></div>');
             const largestQuake = filteredEarthquakeData.length > 0 ? filteredEarthquakeData.reduce((max, q) => q.earthquake.hypocenter.magnitude > max.earthquake.hypocenter.magnitude ? q : max, filteredEarthquakeData[0]) : null;
             const prompt = `あなたは電力インフラに詳しい防災専門家です。ユーザーは「${locationInput.value}」にいます。現在、最大M${largestQuake ? largestQuake.earthquake.hypocenter.magnitude.toFixed(1) : '不明'}の地震が観測されています。この状況を踏まえ、以下の点についてアドバイスをください。
             1. **停電の可能性**: この規模の地震で、${locationInput.value}で停電が発生する一般的な可能性は？
@@ -388,7 +372,7 @@
         }
         
         async function generateDroneFutureReport() {
-            showModal(' AIと語るドローンの未来', '<div class="spinner"></div>');
+            showModal('🤖 AIと語るドローンの未来', '<div class="spinner"></div>');
             const prompt = `あなたはテクノロジーと社会の未来に詳しいアナリストです。「災害対策におけるドローンの重要性と今後の展望」というテーマで、一般向けの解説記事を執筆してください。以下の要素を必ず含めてください。
             1. **現在の活用事例**: 物資輸送、情報収集、被災者捜索など。
             2. **未来の可能性**: 1対n運航（群制御）、AIによる自律判断、救助活動への直接参加など、さらに進んだ活用方法。
@@ -399,7 +383,7 @@
         }
 
         async function generateTransitAdvice() {
-            showModal(' 交通機関向けAIアドバイス', '<div class="spinner"></div>');
+            showModal('🚗 交通機関向けAIアドバイス', '<div class="spinner"></div>');
             const prompt = `あなたは災害危機管理の専門家です。地震発生時に、様々な交通機関を利用している人々（運転手や乗客）に向けて、それぞれの状況に応じた具体的で安全な行動指針をアドバイスしてください。以下の項目を必ず含めてください。
             - **自動車を運転中の場合**
             - **バスやタクシーに乗車中の場合**
@@ -419,37 +403,59 @@
 
         // --- Core Feature Functions ---
         async function handleDroneRequest() {
-            const locationInput = document.getElementById('location-input');
-            if (!locationInput || !locationInput.value) {
-                showModal('エラー', '<p>ドローン支援要請には、まず「MY防災レポート」セクションであなたの場所を指定してください。</p>');
-                return;
+            const modalId = `modal-drone-request-${Date.now()}`;
+            const modalContent = `
+                <div class="space-y-4">
+                    <div>
+                        <p class="text-sm mb-2">支援物資を受け取りたい場所を指定してください。</p>
+                        <div class="space-y-2">
+                            <input type="text" id="drone-location-input" placeholder="場所を入力 or 地図で指定" class="w-full p-2 border rounded-md">
+                            <div class="flex gap-2">
+                                <button id="drone-map-select-button" class="flex-1 bg-gray-200 py-2 px-4 rounded-md hover:bg-gray-300 text-sm">地図から選択</button>
+                                <button id="drone-gps-button" class="flex-1 bg-gray-200 py-2 px-4 rounded-md hover:bg-gray-300 text-sm">現在地を取得</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <p>必要な物資を選択してください（複数選択可）：</p>
+                        <div class="space-y-2 my-4">
+                            <label class="flex items-center"><input type="checkbox" name="drone-supplies" value="医薬品" class="h-4 w-4 text-indigo-600 border-gray-300 rounded"> <span class="ml-2">医薬品 (応急手当セットなど)</span></label>
+                            <label class="flex items-center"><input type="checkbox" name="drone-supplies" value="食料・水" class="h-4 w-4 text-indigo-600 border-gray-300 rounded"> <span class="ml-2">食料・水 (最低1日分)</span></label>
+                            <label class="flex items-center"><input type="checkbox" name="drone-supplies" value="バッテリー" class="h-4 w-4 text-indigo-600 border-gray-300 rounded"> <span class="ml-2">バッテリー (モバイル用)</span></label>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <button id="submit-drone-request" class="bg-sky-600 text-white font-bold py-2 px-4 rounded-md hover:bg-sky-700">AIによるシミュレーションを開始</button>
+                    </div>
+                </div>
+            `;
+            const modalEl = showModal('🚁 ドローン支援要請 (シミュレーション)', modalContent, modalId);
+            
+            const locationInput = modalEl.querySelector('#drone-location-input');
+            if (userAddress) {
+                locationInput.value = userAddress;
             }
 
-            const modalId = `modal-drone-${Date.now()}`;
-            const modalContent = `
-                <p class="text-sm">要請場所: <strong>${locationInput.value}</strong></p>
-                <p>必要な物資を選択してください（複数選択可）：</p>
-                <div class="space-y-2 my-4">
-                    <label class="flex items-center"><input type="checkbox" name="drone-supplies" value="医薬品" class="h-4 w-4 text-indigo-600 border-gray-300 rounded"> <span class="ml-2">医薬品 (応急手当セットなど)</span></label>
-                    <label class="flex items-center"><input type="checkbox" name="drone-supplies" value="食料・水" class="h-4 w-4 text-indigo-600 border-gray-300 rounded"> <span class="ml-2">食料・水 (最低1日分)</span></label>
-                    <label class="flex items-center"><input type="checkbox" name="drone-supplies" value="バッテリー" class="h-4 w-4 text-indigo-600 border-gray-300 rounded"> <span class="ml-2">バッテリー (モバイル用)</span></label>
-                </div>
-                <div class="text-right">
-                    <button id="submit-drone-request" class="bg-sky-600 text-white font-bold py-2 px-4 rounded-md hover:bg-sky-700">AIによるシミュレーションを開始</button>
-                </div>
-                <div id="drone-response-container" class="mt-4"></div>
-            `;
-            const modalEl = showModal(' ドローン支援要請 (シミュレーション)', modalContent, modalId);
-            
+            modalEl.querySelector('#drone-map-select-button').addEventListener('click', () => enterPinMode('drone-location-input'));
+            modalEl.querySelector('#drone-gps-button').addEventListener('click', () => getCurrentLocation('drone-location-input'));
+
             modalEl.querySelector('#submit-drone-request').addEventListener('click', async () => {
-                const droneResponseContainer = modalEl.querySelector('.modal-body');
                 const selectedSupplies = Array.from(modalEl.querySelectorAll('input[name="drone-supplies"]:checked')).map(cb => cb.value);
-                if (selectedSupplies.length === 0) {
-                    droneResponseContainer.innerHTML = '<p class="text-red-500">少なくとも1つの物資を選択してください。</p>';
-                    return;
+                
+                if (!locationInput.value) {
+                    updateModalContent('<p class="text-red-500">場所を指定してください。</p>', modalEl); return;
                 }
-                droneResponseContainer.innerHTML = '<div class="spinner"></div>';
-                const prompt = `あなたは災害対応ドローンの運用AIです。ユーザーから以下の内容で支援要請がありました。応答をJSON形式で生成してください。
+                if (selectedSupplies.length === 0) {
+                    updateModalContent('<p class="text-red-500">少なくとも1つの物資を選択してください。</p>', modalEl); return;
+                }
+
+                // Close the input modal
+                modalEl.querySelector('.modal-close').click();
+
+                // Show a temporary loading message or notification
+                showModal('ドローンミッション開始', '<div class="spinner"></div><p class="text-center mt-4">ドローンミッションを準備中です...</p>', 'drone-loading-modal');
+
+                const prompt = `あなたは災害対応ドローンの運用AIです。ユーザーから以下の内容で支援要請がありました。応答を\`\`\`json ... \`\`\` のようにMarkdownのコードブロック形式で生成してください。他のテキストは不要です。
                 - **要請場所**: ${locationInput.value}
                 - **要請場所の座標**: ${userCoords ? `緯度${userCoords.lat}, 経度${userCoords.lng}`: '不明'}
                 - **要請物資**: ${selectedSupplies.join(', ')}
@@ -462,43 +468,51 @@
                   "departurePointLng": （出発地点の経度）,
                   "estimatedFlightMinutes": （現実的な飛行時間（分））,
                   "missionLog": [
-                      {"time": 0, "event": "要請を受理しました。ドローンを発進準備中です。"},
-                      {"time": 1, "event": "ドローンが拠点（${locationInput.value}防災センター）から離陸しました。"},
-                      {"time": 5, "event": "高度100m、速度50km/hで安定飛行中。"},
-                      {"time": 8, "event": "他の緊急車両との重複を避けるため、一時的にルートを調整します。"},
-                      {"time": 12, "event": "目的地まであとわずかです。安全な場所で待機してください。"}
+                        {"time": 0, "event": "要請を受理しました。ドローンを発進準備中です。"},
+                        {"time": 1, "event": "ドローンが拠点（${locationInput.value}防災センター）から離陸しました。"},
+                        {"time": 5, "event": "高度100m、速度50km/hで安定飛行中。"},
+                        {"time": 8, "event": "他の緊急車両との重複を避けるため、一時的にルートを調整します。"},
+                        {"time": 12, "event": "目的地まであとわずかです。安全な場所で待機してください。"}
                   ],
                   "narrative": "（ユーザーへの応答メッセージ。要請受理、発進、到着予定、飛行経路、受け取り時の注意、免責事項を含むMarkdown形式のテキスト）"
                 }`;
                 const resultText = await callGeminiApi(prompt);
+                
+                // Close loading modal
+                document.getElementById('drone-loading-modal')?.remove();
+
                 try {
-                    const jsonMatch = resultText.match(/\{[\s\S]*\}/);
-                    if (!jsonMatch) throw new Error("AIの応答にJSONデータが含まれていません。");
-                    const jsonString = jsonMatch[0];
+                    const jsonMatch = resultText.match(/```json\n([\s\S]*?)\n```/);
+                    if (!jsonMatch || !jsonMatch[1]) throw new Error("AIの応答にJSONデータが含まれていません。");
+                    const jsonString = jsonMatch[1];
                     const resultJson = JSON.parse(jsonString);
                     
-                    const responseHtml = formatTextToHtml(resultJson.narrative);
-                    droneResponseContainer.innerHTML = `<div id="drone-map"></div>${responseHtml}`;
-                    
+                    // Store narrative for re-opening
+                    lastDroneNarrative = formatTextToHtml(resultJson.narrative);
+                    showDroneNarrativeButton.classList.remove('hidden'); // Show the button
+
+
+                    // Show narrative in the dedicated modal
+                    showDroneNarrativeModal();
+
                     if(userCoords) {
                         const startPoint = [resultJson.departurePointLat, resultJson.departurePointLng];
                         const endPoint = [userCoords.lat, userCoords.lng];
-                        const droneMap = L.map('drone-map');
-                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(droneMap);
-                        initializeDroneMap(droneMap, startPoint, endPoint, resultJson.estimatedFlightMinutes, resultJson.missionLog);
+                        // Store mission data for replay (for static display)
+                        lastDroneMission = {
+                            start: startPoint,
+                            end: endPoint,
+                            durationMinutes: resultJson.estimatedFlightMinutes,
+                            missionLog: resultJson.missionLog
+                        };
+                        // Initialize drone animation on the main map
+                        initializeDroneMap(map, startPoint, endPoint, resultJson.estimatedFlightMinutes, resultJson.missionLog);
                     }
                 } catch(e) {
                     console.error("Failed to parse drone response JSON", e);
-                    droneResponseContainer.innerHTML = `<p class="text-red-500">AIからの応答を解析できませんでした。通常のテキストで表示します。</p>${formatTextToHtml(resultText)}`;
+                    showModal('エラー', `<p class="text-red-500">AIからの応答を解析できませんでした。通常のテキストで表示します。</p>${formatTextToHtml(resultText)}`);
                 }
             });
-        }
-
-        async function getHistoricalContext(quake) {
-            showModal('✨ AIによる地域の地震履歴分析', '<div class="spinner"></div>');
-            const prompt = `あなたは地震の歴史に詳しい専門家です。マグニチュード${quake.earthquake.hypocenter.magnitude.toFixed(1)}の地震が「${quake.displayPlace}」で発生しました。この地域における過去の特筆すべき地震活動や、プレートテクトニクスの観点からの地質学的な背景について、一般の人にも分かりやすく簡潔に解説してください。この地域は地震が多いことで知られていますか？もしあなたの知識ベースに著名な過去の地震があれば、それに言及してください。`;
-            const resultText = await callGeminiApi(prompt);
-            updateModalContent(formatTextToHtml(resultText));
         }
         
         function handleTsunamiSimulation(quake) {
@@ -517,15 +531,11 @@
             const center = [quake.earthquake.hypocenter.latitude, quake.earthquake.hypocenter.longitude];
             const radius = 10000 + quake.earthquake.hypocenter.magnitude * 2000; // Simplified radius
             const circle = L.circle(center, {
-                color: 'blue',
-                fillColor: '#3388ff',
-                fillOpacity: 0.3,
-                radius: radius
+                color: 'blue', fillColor: '#3388ff', fillOpacity: 0.3, radius: radius
             }).addTo(tsunamiLayer);
 
             // Simulate evacuation route
             const userLatLng = L.latLng(userCoords.lat, userCoords.lng);
-            // Simple logic: find a point away from the quake epicenter
             const bearing = map.project(center).subtract(map.project(userLatLng)).angle();
             const evacuationPoint = L.latLng(
                 userLatLng.lat + Math.sin(bearing) * 0.05, // Approx 5km away
@@ -533,7 +543,7 @@
             );
             
             const route = L.polyline([userLatLng, evacuationPoint], {color: 'green', dashArray: '5, 5'}).addTo(tsunamiLayer);
-            const shelterIcon = L.divIcon({className: 'text-4xl', html: '避'});
+            const shelterIcon = L.divIcon({className: 'text-4xl', html: '🏫'});
             L.marker(evacuationPoint, {icon: shelterIcon}).addTo(tsunamiLayer).bindTooltip("高台避難場所 (シミュレーション)");
 
             map.fitBounds(L.featureGroup([circle, route]).getBounds().pad(0.2));
@@ -571,7 +581,7 @@
             filteredEarthquakeData = allEarthquakeData.filter(quake => quake.earthquake.hypocenter.magnitude >= minMag);
             
             if (currentMode === 'world') {
-                const regionFilter = document.getElementById('region-filter-modal');
+                const regionFilter = document.getElementById('region-filter');
                 const selectedRegion = regionFilter ? regionFilter.value : 'all';
                 if (selectedRegion !== 'all') {
                     filteredEarthquakeData = filteredEarthquakeData.filter(quake => quake.region === selectedRegion);
@@ -621,7 +631,7 @@
                 
                 const tsunamiButton = document.createElement('button');
                 tsunamiButton.className = 'w-full mt-1 text-sm bg-cyan-600 text-white font-bold py-1 px-2 rounded-md hover:bg-cyan-700 transition-colors';
-                tsunamiButton.innerHTML = ' 津波・避難シミュレーション';
+                tsunamiButton.innerHTML = '🌊 津波・避難シミュレーション';
                 tsunamiButton.onclick = () => handleTsunamiSimulation(quake);
 
                 popupContent.appendChild(historyButton);
@@ -632,7 +642,7 @@
                 
                 if (listElement) {
                     const listItem = document.createElement('li');
-                    listItem.className = 'p-3 border rounded-lg shadow-sm list-item-hover transition-colors duration-200';
+                    listItem.className = 'p-3 border rounded-lg shadow-sm list-item-hover transition-colors duration-200 cursor-pointer';
                     listItem.innerHTML = `<div class="font-semibold text-gray-800">${displayPlace} ${tsunami ? '🌊' : ''}</div><div class="text-sm text-gray-600">${displayTime}</div><div class="flex flex-wrap justify-between items-center mt-2 text-sm gap-x-4 gap-y-1"><span class="font-bold px-2 py-1 rounded-md" style="background-color:${fillColor}; color: ${isDarkColor(fillColor) ? 'white' : 'black'}">マグニチュード ${magnitude.toFixed(1)}</span><span>深さ: ${depth.toFixed(1)} km</span><span>${shindoLabel}: ${shindoValue}</span></div>`;
                     listItem.addEventListener('mouseover', () => { circle.setStyle(highlightStyle).bringToFront(); });
                     listItem.addEventListener('mouseout', () => { circle.setStyle(defaultStyle); });
@@ -688,15 +698,18 @@
         }
 
         function populateRegionFilter(regions) {
-            const regionFilter = document.getElementById('region-filter-modal');
+            const regionFilter = document.getElementById('region-filter');
             if(!regionFilter) return;
-            regionFilter.innerHTML = '<option value="all">すべて表示</option>';
+            const currentVal = regionFilter.value;
+            regionFilter.innerHTML = '<option value="all">すべての地域</option>';
             const sortedRegions = Array.from(regions).sort();
             sortedRegions.forEach(region => { const option = document.createElement('option'); option.value = region; option.textContent = region; regionFilter.appendChild(option); });
+            regionFilter.value = currentVal;
         }
         
-        // --- Modal and Policy/Terms Logic ---
+        // --- Modal and UI Logic ---
         function showModal(title, content, modalId = `modal-${Date.now()}`) {
+            // For general modals, remove existing with same ID or create new
             const existingModal = document.getElementById(modalId);
             if(existingModal) existingModal.remove();
 
@@ -706,7 +719,7 @@
             modalEl.innerHTML = `
                 <div class="modal-container">
                     <div class="modal-header">
-                        <h2 class="text-2xl font-bold mb-4">${title}</h2>
+                        <h2 class="text-xl font-bold">${title}</h2>
                     </div>
                     <div class="modal-body">${content}</div>
                     <div class="modal-footer">
@@ -715,7 +728,6 @@
                 </div>`;
             modalContainer.appendChild(modalEl);
             
-            // Trigger fade-in animation
             setTimeout(() => modalEl.classList.add('visible'), 10);
 
             const close = () => {
@@ -728,9 +740,146 @@
             return modalEl;
         }
 
+        function showDroneNarrativeModal() {
+            if (!lastDroneNarrative) {
+                showModal('情報なし', '<p>表示するドローンミッション情報がありません。まず新しいミッションを開始してください。</p>');
+                return;
+            }
+
+            // ONLY display static path if NO animation is currently running
+            // If an animation is running, the droneLayer already contains the animated drone and route.
+            if (!droneAnimationId && lastDroneMission) { // Check if animation is NOT active AND static mission data exists
+                displayStaticDronePath(lastDroneMission.start, lastDroneMission.end);
+            } else if (!droneAnimationId && !lastDroneMission) {
+                // No animation running, but no last mission data either. Clear layer just in case.
+                droneLayer.clearLayers();
+            }
+
+
+            // Reuse the pre-existing drone-narrative-modal element
+            const modalEl = droneNarrativeModalEl;
+            modalEl.querySelector('.modal-body').innerHTML = lastDroneNarrative;
+            
+            // Show the modal
+            modalEl.classList.add('visible');
+            modalEl.classList.remove('hidden'); // Ensure it's not hidden by display:none
+
+            // Attach close listener if not already attached (or re-attach for safety)
+            const closeButton = modalEl.querySelector('.modal-close');
+            const closeHandler = () => {
+                modalEl.classList.remove('visible');
+                // Use 'hidden' class to truly hide it, not remove from DOM
+                setTimeout(() => modalEl.classList.add('hidden'), 300); 
+                // If animation is NOT running, clear the static path when modal is closed
+                if (!droneAnimationId) {
+                    droneLayer.clearLayers();
+                }
+            };
+            closeButton.onclick = null; // Clear previous listeners
+            closeButton.addEventListener('click', closeHandler);
+            modalEl.onclick = (e) => { // Close when clicking outside
+                if (e.target === modalEl) closeHandler();
+            };
+        }
+
+
         function updateModalContent(content, modalEl) {
             const target = modalEl ? modalEl.querySelector('.modal-body') : modalContainer.querySelector('.modal-overlay:last-child .modal-body');
             if(target) target.innerHTML = content;
+        }
+
+        function showAiToolsModal() {
+            const content = `
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="text-lg font-bold mb-2">全体状況の分析</h3>
+                        <p class="text-sm mb-2 text-gray-600">現在の地震活動全体の傾向をAIが分析し、今後の見通しや注意点を報告します。</p>
+                        <button id="analysis-button" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700">活動状況のAI分析を開始</button>
+                    </div>
+                    <div class="border-t pt-4">
+                        <h3 class="text-lg font-bold mb-2">MY防災レポート</h3>
+                        <p class="text-sm mb-2 text-gray-600">あなたの場所と世帯構成に合わせた、パーソナルな防災計画をAIが作成します。</p>
+                        <div class="space-y-2">
+                            <input type="text" id="location-input" placeholder="場所を入力 or 地図で指定" class="w-full p-2 border rounded-md">
+                            <div class="flex gap-2">
+                                <button id="map-select-button" class="flex-1 bg-gray-200 py-2 px-4 rounded-md hover:bg-gray-300 text-sm">地図から選択</button>
+                                <button id="gps-button" class="flex-1 bg-gray-200 py-2 px-4 rounded-md hover:bg-gray-300 text-sm">現在地を取得</button>
+                            </div>
+                            <select id="household-type" class="w-full p-2 border rounded-md">
+                                <option>一人暮らし</option>
+                                <option>二人暮らし</option>
+                                <option>子どもがいる家庭</option>
+                                <option>高齢者がいる家庭</option>
+                            </select>
+                            <button id="safety-report-button" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">MY防災レポートを作成</button>
+                        </div>
+                    </div>
+                    <div class="border-t pt-4">
+                        <h3 class="text-lg font-bold mb-2">その他のAI防災ツール</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <button id="prepare-button" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700">事前の備え</button>
+                            <button id="power-outage-button" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700">停電リスク分析</button>
+                            <button id="transit-advice-button" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700">交通機関アドバイス</button>
+                            <button id="drone-future-button" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700">ドローンの未来</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            const modalEl = showModal('🤖 AI防災ツール', content);
+            const locationInput = modalEl.querySelector('#location-input');
+            if (userAddress) {
+                locationInput.value = userAddress;
+            }
+        }
+
+        function showFilterModal() {
+            const worldFilterDisplay = currentMode === 'world' ? 'block' : 'none';
+            const content = `
+                <div class="space-y-4">
+                    <div>
+                        <label for="mag-filter" class="block mb-2 font-bold">最小マグニチュード: <span id="mag-value">0</span></label>
+                        <input type="range" id="mag-filter" min="0" max="9" step="0.5" value="${document.getElementById('mag-filter')?.value || 0}" class="w-full">
+                    </div>
+                    <div id="world-filter-container" style="display: ${worldFilterDisplay};">
+                        <label for="region-filter" class="block mb-2 font-bold">地域</label>
+                        <select id="region-filter" class="w-full p-2 border rounded-md">
+                            ${document.getElementById('region-filter')?.innerHTML || '<option value="all">すべての地域</option>'}
+                        </select>
+                    </div>
+                    <div class="text-right">
+                        <button id="apply-filter-button" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700">適用</button>
+                    </div>
+                </div>
+            `;
+            const modalEl = showModal('絞り込みフィルター', content);
+            const magFilter = modalEl.querySelector('#mag-filter');
+            const magValue = modalEl.querySelector('#mag-value');
+            magValue.textContent = magFilter.value;
+            magFilter.addEventListener('input', () => magValue.textContent = magFilter.value);
+        }
+
+        function showInfoShareModal() {
+            const content = `
+                <p class="mb-4">地図上に追加したい情報の種類を選択し、コメントを入力してください。</p>
+                <div class="space-y-3">
+                    <div>
+                        <label for="note-type" class="block text-sm font-medium text-gray-700">情報の種類</label>
+                        <select id="note-type" class="mt-1 block w-full p-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="danger">危険箇所 ⚠️</option>
+                            <option value="support">支援拠点 🤝</option>
+                            <option value="supply">物資情報 📦</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="note-comment" class="block text-sm font-medium text-gray-700">コメント</label>
+                        <input type="text" id="note-comment" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="例：この先の橋が通行止めです">
+                    </div>
+                    <div class="text-right pt-2">
+                        <button id="submit-note-button" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700">地図上で場所を指定</button>
+                    </div>
+                </div>
+            `;
+            showModal('共有情報を追加', content);
         }
         
         // --- Utility Functions ---
@@ -741,20 +890,30 @@
                 .replace(/## (.*$)/gm, '<h3>$1</h3>')
                 .replace(/# (.*$)/gm, '<h2>$1</h2>')
                 .replace(/^\* (.*$)/gm, '<li>$1</li>');
-            html = html.replace(/<li>/g, '<ul><li>').replace(/<\/li>/g, '<\/li></ul>');
+            html = html.replace(/<li>/g, '<ul><li>').replace(/<\/li>/g, '</li></ul>');
             html = html.replace(/<\/ul>\s*<ul>/g, '');
             return html.replace(/\n/g, '<br>').replace(/<br><br>/g, '<br>');
         }
         function setApiButtonsState(inProgress) {
             isApiCallInProgress = inProgress;
-            document.querySelectorAll('#toolbox button').forEach(button => button.disabled = inProgress);
+            document.querySelectorAll('#toolbox button, .modal-container button').forEach(button => button.disabled = inProgress);
         }
         function getMagnitudeColor(mag) { if (mag >= 7) return '#b30000'; if (mag >= 6) return '#d73027'; if (mag >= 5) return '#fc8d59'; if (mag >= 4) return '#fee08b'; return '#91cf60'; }
         function getJmaShindoColor(shindo) { const map = { '7':'#580b27', '6強':'#b30000', '6弱':'#d73027', '5強':'#fc8d59', '5弱':'#fee08b', '4':'#ffffbf', '3':'#d9ef8b', '2':'#91cf60', '1':'#1a9850', '0':'#cccccc' }; return map[shindo] || '#cccccc'; }
         function convertMmiToRoman(mmi) { if (mmi == null || mmi < 1) return '情報なし'; const map = {1:'I', 2:'II', 3:'III', 4:'IV', 5:'V', 6:'VI', 7:'VII', 8:'VIII', 9:'IX'}; const roundedMmi = Math.round(mmi); if (roundedMmi >= 10) return 'X+'; return map[roundedMmi] || '情報なし'; }
         function convertMmiToJmaShindo(mmi) { if (mmi == null || mmi < 0) return '情報なし'; if (mmi < 0.5) return '0'; if (mmi < 1.5) return '1'; if (mmi < 2.5) return '2'; if (mmi < 3.5) return '3'; if (mmi < 4.5) return '4'; if (mmi < 5.0) return '5弱'; if (mmi < 5.5) return '5強'; if (mmi < 6.0) return '6弱'; if (mmi < 6.5) return '6強'; return '7'; }
         function convertScale(scale) { const scaleMap = { 10:'1', 20:'2', 30:'3', 40:'4', 45:'5弱', 50:'5強', 55:'6弱', 60:'6強', 70:'7' }; return scaleMap[scale] ?? '不明'; }
-        function isDarkColor(hexcolor) { if (!hexcolor.startsWith('#')) return false; const r = parseInt(hexcolor.substr(1, 2), 16), g = parseInt(hexcolor.substr(3, 2), 16), b = parseInt(hexcolor.substr(5, 2), 16); return ((r * 299) + (g * 587) + (b * 114)) / 1000 < 128; }
+        function isDarkColor(hexcolor) { if (!hexcolor || !hexcolor.startsWith('#')) return false; const r = parseInt(hexcolor.substr(1, 2), 16), g = parseInt(hexcolor.substr(3, 2), 16), b = parseInt(hexcolor.substr(5, 2), 16); return ((r * 299) + (g * 587) + (b * 114)) / 1000 < 128; }
+        function updateModeToggleButton() {
+            const button = document.getElementById('mode-toggle-button');
+            if (currentMode === 'japan') {
+                button.title = '世界モードに切替';
+                button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" /></svg>`;
+            } else {
+                button.title = '日本モードに切替';
+                button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.5-11.494l-2.024.953a.875.875 0 01-1.006 0l-2.83-1.331a.875.875 0 00-1.006 0l-2.909 1.365a.875.875 0 00-.527.824V18.25a.75.75 0 00.75.75h10.5a.75.75 0 00.75-.75V8.574a.875.875 0 00-.527-.824l-2.91-1.365a.875.875 0 00-1.005 0l-2.83 1.331a.875.875 0 01-1.006 0l-2.024-.953" /></svg>`;
+            }
+        }
 
         // --- Location Picker Logic ---
         function enterPinMode(targetInputId = 'location-input') {
@@ -799,7 +958,7 @@
             const pinIcon = L.divIcon({className: 'text-4xl', html: '📍'});
             locationMarker = L.marker([lat, lng], {
                 icon: pinIcon,
-                draggable: true 
+                draggable: true // Make the pin draggable
             }).addTo(map);
             
             locationMarker.on('dragend', function(event) {
@@ -854,9 +1013,9 @@
             const startCoords = L.latLng(start[0], start[1]);
             const endCoords = L.latLng(end[0], end[1]);
 
-            const destinationIcon = L.divIcon({className: 'text-4xl', html: '📦'});
-            const droneBaseIcon = L.divIcon({className: 'text-4xl', html: '🚁'});
-            const droneIcon = L.divIcon({className: 'text-4xl drone-icon', html: '✈️'});
+            const destinationIcon = L.divIcon({className: 'text-4xl', html: '🏠'});
+            const droneBaseIcon = L.divIcon({className: 'text-4xl', html: '📡'});
+            const droneIcon = L.divIcon({className: 'text-4xl drone-icon', html: '🚁'});
 
             const destMarker = L.marker(endCoords, {icon: destinationIcon}).addTo(droneLayer).bindTooltip("目的地");
             const baseMarker = L.marker(startCoords, {icon: droneBaseIcon}).addTo(droneLayer).bindTooltip("ドローン基地");
@@ -888,22 +1047,23 @@
 
             animateDrone(movingDrone, route, durationMinutes * 60 * 1000, missionLog);
         }
-        
+
+        // New function to display static drone path
         function displayStaticDronePath(start, end) {
-            droneLayer.clearLayers(); 
+            droneLayer.clearLayers(); // Clear any existing drone elements
 
             const startCoords = L.latLng(start[0], start[1]);
             const endCoords = L.latLng(end[0], end[1]);
 
-            const destinationIcon = L.divIcon({className: 'text-4xl', html: '📦'});
-            const droneBaseIcon = L.divIcon({className: 'text-4xl', html: '🚁'});
+            const destinationIcon = L.divIcon({className: 'text-4xl', html: '🏠'});
+            const droneBaseIcon = L.divIcon({className: 'text-4xl', html: '📡'});
 
             L.marker(endCoords, {icon: destinationIcon}).addTo(droneLayer).bindTooltip("目的地");
             L.marker(startCoords, {icon: droneBaseIcon}).addTo(droneLayer).bindTooltip("ドローン基地");
             
             L.polyline([startCoords, endCoords], {color: 'blue', dashArray: '5, 10'}).addTo(droneLayer);
 
-            map.fitBounds(L.featureGroup([L.marker(startCoords), L.marker(endCoords)]).getBounds().pad(0.2));
+            map.fitBounds(L.featureGroup([L.marker(startCoords), L.marker(endCoords)]).getBounds().pad(0.2)); // Fit bounds
         }
         
         function animateDrone(marker, route, duration, missionLog) {
@@ -938,25 +1098,30 @@
 
                 // Update real-time info more realistically
                 if (timestamp - lastUpdateTimestamp > updateInterval) {
-                    const speedChange = (currentDroneState.targetSpeed - currentDroneState.speed) * 0.1 + (Math.random() - 0.5) * 1;
+                    // Speed: gradually approach target, with small fluctuations
+                    const speedChange = (currentDroneState.targetSpeed - currentDroneState.speed) * 0.1 + (Math.random() - 0.5) * 1; // +/- 0.5 km/h
                     currentDroneState.speed = Math.max(0, Math.min(currentDroneState.targetSpeed * 1.1, currentDroneState.speed + speedChange));
                     if(speedEl) speedEl.textContent = `${currentDroneState.speed.toFixed(1)}`;
 
-                    const altitudeChange = (currentDroneState.targetAltitude - currentDroneState.altitude) * 0.1 + (Math.random() - 0.5) * 0.5;
+                    // Altitude: gradually approach target, with small fluctuations
+                    const altitudeChange = (currentDroneState.targetAltitude - currentDroneState.altitude) * 0.1 + (Math.random() - 0.5) * 0.5; // +/- 0.25 m
                     currentDroneState.altitude = Math.max(0, Math.min(currentDroneState.targetAltitude * 1.1, currentDroneState.altitude + altitudeChange));
                     if(altitudeEl) altitudeEl.textContent = `${currentDroneState.altitude.toFixed(1)}`;
 
-                    currentDroneState.battery = Math.max(0, currentDroneState.battery - (0.01 + Math.random() * 0.02));
+                    // Battery: mostly linear, with minor random drain
+                    currentDroneState.battery = Math.max(0, currentDroneState.battery - (0.01 + Math.random() * 0.02)); // Drain 0.01-0.03% per update
                     if(batteryEl) batteryEl.textContent = `${currentDroneState.battery.toFixed(1)}`;
 
-                    const windChange = (Math.random() - 0.5) * 0.2;
+                    // Wind Speed: gradual random fluctuations
+                    const windChange = (Math.random() - 0.5) * 0.2; // +/- 0.1 m/s
                     currentDroneState.windSpeed = Math.max(0, Math.min(currentDroneState.targetWindSpeed * 1.2, currentDroneState.windSpeed + windChange));
                     if(windSpeedEl) windSpeedEl.textContent = `${currentDroneState.windSpeed.toFixed(1)}`;
 
-                    if (Math.random() < 0.005) {
+                    // Obstacle Detection: low probability, but can "stick" for a bit
+                    if (Math.random() < 0.005) { // 0.5% chance per update
                         currentDroneState.obstacleDetected = true;
                         if(obstacleDetectionEl) obstacleDetectionEl.textContent = '検知！';
-                    } else if (currentDroneState.obstacleDetected && Math.random() < 0.1) {
+                    } else if (currentDroneState.obstacleDetected && Math.random() < 0.1) { // 10% chance to clear if detected
                         currentDroneState.obstacleDetected = false;
                         if(obstacleDetectionEl) obstacleDetectionEl.textContent = 'なし';
                     } else if (!currentDroneState.obstacleDetected) {
@@ -980,12 +1145,15 @@
                     marker.setLatLng(latlngs[1]);
                     marker.setIcon(L.divIcon({className: 'text-4xl', html: '✅'}));
                     if(etaEl) etaEl.textContent = '到着済み';
-                    droneAnimationId = null; 
+                    // Hide dashboard and clear drone elements after completion
                     setTimeout(() => {
                         droneDashboard.classList.add('hidden');
+                        // Only clear droneLayer if no narrative modal is open and showing static path
+                        // Or, more simply, just clear it after animation completes.
+                        // The static path logic in showDroneNarrativeModal will redraw it if needed.
                         droneLayer.clearLayers();
                         droneMarkers = [];
-                    }, 3000);
+                    }, 3000); // Hide after 3 seconds
                 }
             }
             droneAnimationId = requestAnimationFrame(animationStep);
@@ -1004,8 +1172,7 @@
 
         // --- Event Listeners ---
         document.getElementById('mode-toggle-button').addEventListener('click', () => {
-            const isWorld = currentMode === 'japan';
-            switchMode(isWorld ? 'world' : 'japan');
+            switchMode(currentMode === 'japan' ? 'world' : 'japan');
         });
         document.getElementById('filter-button').addEventListener('click', showFilterModal);
         document.getElementById('ai-tools-button').addEventListener('click', showAiToolsModal);
@@ -1013,85 +1180,65 @@
         document.getElementById('drone-request-button').addEventListener('click', handleDroneRequest);
         document.getElementById('cancel-drone-mission').addEventListener('click', cancelDroneMission);
         
-        replayDroneMissionButton.addEventListener('click', () => {
-            if (lastDroneMission) {
-                initializeDroneMap(
-                    map,
-                    lastDroneMission.start,
-                    lastDroneMission.end,
-                    lastDroneMission.durationMinutes,
-                    lastDroneMission.missionLog
-                );
-            } else {
-                showModal('ミッションデータなし', '<p>再生するドローンミッションのデータがありません。まず新しいミッションを開始してください。</p>');
-            }
-        });
-
+        // Event listener for showing drone narrative
         showDroneNarrativeButton.addEventListener('click', showDroneNarrativeModal);
 
 
+        // Delegated event listener for buttons inside modals
         document.body.addEventListener('click', (e) => {
             const target = e.target.closest('button');
-            if(!target) return;
+            if(!target || !target.id) return;
             
-            const targetId = target.id;
-            switch(targetId) {
+            switch(target.id) {
                 case 'analysis-button': generateAnalysis(); break;
                 case 'prepare-button': generatePreparednessTips(); break;
-                case 'safety-report-button': 
+                case 'safety-report-button': {
                     const locationInput = document.getElementById('location-input');
                     const householdType = document.getElementById('household-type');
-                    generateSafetyReport(locationInput.value, householdType.value); 
+                    generateSafetyReport(locationInput?.value, householdType?.value); 
                     break;
+                }
                 case 'map-select-button': enterPinMode('location-input'); break;
                 case 'gps-button': getCurrentLocation('location-input'); break;
                 case 'power-outage-button': generatePowerOutageReport(); break;
                 case 'drone-future-button': generateDroneFutureReport(); break;
                 case 'transit-advice-button': generateTransitAdvice(); break;
-                case 'add-map-note-button':
-                    showModal('情報共有', `
-                        <p>地図上をクリックして情報を追加してください。</p>
-                        <div class="space-y-2">
-                            <div>
-                                <label for="note-type">情報の種類:</label>
-                                <select id="note-type" class="border rounded p-1">
-                                    <option value="danger">危険箇所 ⚠️</option>
-                                    <option value="support">支援拠点 🏠</option>
-                                    <option value="supply">物資情報 💧</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="note-comment">コメント:</label>
-                                <input type="text" id="note-comment" class="border rounded p-1 w-full" placeholder="例：この先の橋が通行止めです">
-                            </div>
-                            <button id="submit-note" class="bg-blue-500 text-white p-2 rounded">追加</button>
-                        </div>
-                    `);
-                    document.getElementById('submit-note').onclick = () => {
-                         map.once('click', (e) => {
-                            const type = document.getElementById('note-type').value;
-                            const comment = document.getElementById('note-comment').value;
-                            const icons = { danger: '⚠️', support: '🏠', supply: '💧' };
-                            L.marker(e.latlng, { icon: L.divIcon({className: 'text-2xl', html: icons[type]}) })
-                                .addTo(notesLayer)
-                                .bindPopup(`<strong>${type}</strong><br>${comment}`);
-                        });
-                        alert("地図をクリックして情報を追加してください。");
-                        modalContainer.innerHTML = '';
-                    };
+                case 'apply-filter-button': {
+                    applyFilters();
+                    target.closest('.modal-overlay')?.querySelector('.modal-close').click();
                     break;
+                }
+                case 'submit-note-button': {
+                    const formModal = target.closest('.modal-overlay');
+                    const type = formModal.querySelector('#note-type').value;
+                    const commentInput = formModal.querySelector('#note-comment');
+                    const comment = commentInput.value;
+                    if (!comment) {
+                        commentInput.placeholder = "コメントを入力してください";
+                        commentInput.classList.add('border-red-500');
+                        return;
+                    }
+                    const icons = { danger: '⚠️', support: '🤝', supply: '📦' };
+
+                    formModal.querySelector('.modal-close').click();
+                    const instructionModal = showModal('情報追加', '<p>地図上の情報を追加したい地点をクリックしてください。</p>');
+                    
+                    map.once('click', (mapClickEvent) => {
+                        L.marker(mapClickEvent.latlng, { icon: L.divIcon({className: 'text-2xl', html: icons[type]}) })
+                            .addTo(notesLayer)
+                            .bindPopup(`<strong>${type}</strong><br>${comment}`);
+                        instructionModal.querySelector('.modal-close').click();
+                    });
+                    break;
+                }
             }
-        });
-        
-        document.getElementById('mode-toggle-button').addEventListener('click', () => {
-            const isWorld = currentMode === 'japan';
-            switchMode(isWorld ? 'world' : 'japan');
         });
 
         // --- Initial Load ---
-        switchMode('japan'); 
+        switchMode('japan');
         fetchTectonicPlates();
     });
     </script>
 </body>
 </html>
+
