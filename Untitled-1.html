@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地震情報可視化マップ</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>地震情報可視化マップ</h1>
+    <div class="warning">
+        <p><strong>【重要】</strong>このアプリケーションは、過去の地震情報を表示し防災意識を高めることを目的としています。<strong>地震を予測するものではありません。</strong></p>
+        <p>実際の避難や防災行動に関する判断は、必ず<a href="https://www.jma.go.jp/jma/index.html" target="_blank" rel="noopener noreferrer">気象庁</a>などの公的機関が発表する最新の情報に基づいて行ってください。</p>
+    </div>
+    <div id="map"></div>
+    <h2>最近の地震情報（過去50件）</h2>
+    <ul id="earthquake-list">
+        <li>データを読み込んでいます...</li>
+    </ul>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="script.js"></script>
+</body>
+</html>
