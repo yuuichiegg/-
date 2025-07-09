@@ -360,18 +360,16 @@
         // --- Gemini API Call ---
         // Function to get the API key, prioritizing Vercel's injected env var if available
         function getApiKey() {
-            // For Vercel deployments using frameworks like Vite, environment variables are exposed via import.meta.env
-            // For plain HTML/JS on Vercel without a bundler, this might require a custom build step or serverless function.
-            // As a fallback, use the Canvas provided key or an empty string.
-            if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
-                return import.meta.env.VITE_GEMINI_API_KEY;
+            // Check for process.env.GEMINI_API_KEY for Vercel deployment
+            if (typeof process !== 'undefined' && process.env && process.env.GEMINI_API_KEY) {
+                return process.env.GEMINI_API_KEY;
             }
             // Fallback for Canvas environment
             if (typeof __api_key !== 'undefined') {
                 return __api_key;
             }
-            // Fallback for local development without environment variables
-            console.warn("API Key is not set. AI features may not work. Please set VITE_GEMINI_API_KEY environment variable for Vercel deployment.");
+            // Fallback for local development or if not set
+            console.warn("API Key is not set. AI features may not work. Please ensure 'GEMINI_API_KEY' is configured in your Vercel project's Environment Variables.");
             return ""; // Return empty string if no API key is found
         }
 
@@ -379,7 +377,7 @@
             setApiButtonsState(true);
             const apiKey = getApiKey(); // Get API key using the new function
             if (!apiKey) {
-                console.error("Gemini API Error: API Key is missing. Please ensure it's set correctly in Vercel environment variables (VITE_GEMINI_API_KEY) or provided in the Canvas environment.");
+                console.error("Gemini API Error: API Key is missing. Please ensure it's set correctly in Vercel environment variables (GEMINI_API_KEY) or provided in the Canvas environment.");
                 setApiButtonsState(false);
                 return `エラーが発生しました: APIキーが設定されていません。`;
             }
@@ -390,8 +388,11 @@
                 const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 if (!response.ok) {
                     if (response.status === 401) {
-                        console.error("Gemini API Error: 401 Unauthorized. APIキーが正しく設定されていないか、Canvas環境でAPIキーが提供されていません。Canvas外で実行する場合は、有効なAPIキーを`VITE_GEMINI_API_KEY`環境変数に設定してください。");
+                        console.error("Gemini API Error: 401 Unauthorized. APIキーが正しく設定されていないか、Canvas環境でAPIキーが提供されていません。Vercelで実行する場合は、有効なAPIキーを`GEMINI_API_KEY`環境変数に設定してください。");
                         throw new Error('APIリクエストに失敗しました: 認証エラー (401)');
+                    } else if (response.status === 403) {
+                         console.error("Gemini API Error: 403 Forbidden. APIキーにアクセス権限がないか、APIが有効になっていません。Google Cloud ConsoleでAPIを有効にし、APIキーの権限を確認してください。");
+                         throw new Error('APIリクエストに失敗しました: アクセス拒否 (403)');
                     }
                     throw new Error(`APIリクエストに失敗しました: ${response.status}`);
                 }
